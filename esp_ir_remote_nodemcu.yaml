@@ -1,0 +1,167 @@
+### Connection initialization #################################################
+esphome:
+  name: esp_ir_remote_nodemcu
+  platform: ESP8266
+  board: nodemcuv2
+  
+substitutions:
+  boardname: IR Remote
+
+wifi:
+  ssid: !secret Wifi_SSID
+  password: !secret Wifi_PWD
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid:     ${boardname}-AP
+    password: "Password"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Run a small webserver
+#web_server:
+#  port: 80
+  
+# Enable Home Assistant API
+api:
+  password: !secret API_Pass
+  
+ota:
+  password: !secret OTA_Pass
+  
+### Board Individualization ###################################################
+
+dallas:
+  - pin: D3
+
+sensor:
+# WiFi Signal sensor.
+  - platform: wifi_signal
+    name: ${boardname} WiFi
+    update_interval: 3600s # Every 1 hour.
+
+  - platform: dallas
+    # update_interval: 60s
+    address: 0xA5041762F262FF28
+    name: ${boardname} Temperature
+    filters:
+      - calibrate_linear:
+          # Map 0.0 (from sensor) to 0.0 (true value)
+          - 0.0 -> 0.0
+          - 25.3 -> 24.3
+
+binary_sensor:
+  - platform: gpio
+    pin: D5
+    name: "INPUT Touch"
+
+    
+### -----  IR Transmitter  -----
+remote_transmitter:
+  pin: D1
+  # RF uses a 100% carrier signal
+  #carrier_duty_percent: 100%
+  # IR uses a 50% carrier signal
+  carrier_duty_percent: 50%
+
+switch:
+  - platform: gpio
+    name: "OUTPUT onboard LED"
+    pin: 
+      number: D0 
+      # number: D4 # D4 for Wemos D1 mini
+      # number: D0 # D0 for NodeMCU      
+      inverted: True
+      mode: OUTPUT
+
+
+
+#--Emfang -----------------
+
+  - platform: template
+    name: "Emfang Light"
+    icon: "mdi:lightbulb-on-outline"
+    turn_on_action:
+    - remote_transmitter.transmit_nec:
+        address: 0x8166
+        command: 0x9966
+
+  - platform: template
+    name: "Emfang Power"
+    icon: "mdi:weather-tornado"
+    turn_on_action:
+    - remote_transmitter.transmit_nec:
+        address: 0x8166
+        command: 0x817E
+
+  - platform: template
+    name: Emfang Up
+    icon: "mdi:arrow-up-bold-circle"
+    turn_on_action:
+    - remote_transmitter.transmit_nec:
+        address: 0x8166
+        command: 0xA15E
+
+  - platform: template
+    name: Emfang Down
+    icon: "mdi:arrow-down-bold-circle"
+    turn_on_action:
+    - remote_transmitter.transmit_nec:
+        address: 0x8166
+        command: 0x51AE
+
+#--iLife robot hoover called Roberta -----------------
+  - platform: template
+    name: "Go go Roberta"
+    icon: "mdi:broom"
+    turn_on_action:
+    - remote_transmitter.transmit_nec:
+        address: 0x02AA
+        command: 0x22DD
+        repeat:
+          times: 4
+          wait_time: 200ms
+
+  - platform: template
+    name: "Stop Roberta, stop"
+    icon: "mdi:hand-left"
+    turn_on_action:
+    - remote_transmitter.transmit_nec:
+        address: 0x02AA
+        command: 0x22DD
+        repeat:
+          times: 5
+          wait_time: 50ms
+
+
+  - platform: template
+    name: "Roberta go home"
+    # icon: "mdi:ev-station"
+    icon: "mdi:home-import-outline"
+    turn_on_action:
+    - remote_transmitter.transmit_nec:
+        address: 0x02AA
+        command: 0x8877
+        repeat: 5
+
+  - platform: template
+    name: "Roberta call 'Max Power'"
+    turn_on_action:
+    - remote_transmitter.transmit_nec:
+        address: 0x02AA
+        command: 0x6699
+        repeat: 5    
+
+### -----  IR Reciever  -----
+remote_receiver:
+  pin: D5
+  dump: rc_switch
+#  dump: all
+#  dump: raw
+  
+  #carrier_frequency: 38kHz
+
+
+
